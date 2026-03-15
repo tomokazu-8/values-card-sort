@@ -367,6 +367,78 @@ function renderCard(mainEl) {
   mainEl.querySelectorAll("[data-cat]").forEach(btn =>
     btn.addEventListener("click", () => { sortCard(btn.dataset.cat); render(); })
   );
+  initCardDragSort(mainEl);
+}
+
+function initCardDragSort(mainEl) {
+  const card = mainEl.querySelector(".card");
+  const btnWrap = mainEl.querySelector(".btns");
+  const buttons = [...mainEl.querySelectorAll("[data-cat]")];
+  if (!card || !btnWrap || buttons.length === 0) return;
+
+  let drag = null;
+
+  const clearTargets = () => {
+    btnWrap.classList.remove("drag-active");
+    buttons.forEach(btn => btn.classList.remove("is-drop-target"));
+  };
+
+  const pickTarget = (x, y) => {
+    let next = null;
+    buttons.forEach(btn => {
+      const rect = btn.getBoundingClientRect();
+      const hit = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      btn.classList.toggle("is-drop-target", hit);
+      if (hit) next = btn;
+    });
+    btnWrap.classList.toggle("drag-active", !!next);
+    return next;
+  };
+
+  const resetCard = () => {
+    drag = null;
+    card.classList.remove("is-dragging");
+    card.style.transform = "";
+    clearTargets();
+  };
+
+  card.classList.add("drag-enabled");
+  card.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    drag = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      activeBtn: null,
+    };
+    card.setPointerCapture(e.pointerId);
+    card.classList.add("is-dragging");
+    clearTargets();
+    e.preventDefault();
+  });
+
+  card.addEventListener("pointermove", e => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    const rotate = Math.max(-8, Math.min(8, dx / 18));
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`;
+    drag.activeBtn = pickTarget(e.clientX, e.clientY);
+  });
+
+  const finishDrag = e => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const target = drag.activeBtn || pickTarget(e.clientX, e.clientY);
+    const cat = target?.dataset.cat;
+    resetCard();
+    if (!cat) return;
+    sortCard(cat);
+    render();
+  };
+
+  card.addEventListener("pointerup", finishDrag);
+  card.addEventListener("pointercancel", resetCard);
+  card.addEventListener("lostpointercapture", resetCard);
 }
 
 function renderResult(mainEl) {
